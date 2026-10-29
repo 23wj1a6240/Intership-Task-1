@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vulnerability Disclosure Case Tracker</title>
+<style>
+:root{--bg:#f3f4fa;--surface:#fff;--ink:#1b2150;--muted:#555b82;--line:#d6d9ec;--accent:#3340b8;--ok:#1f6b35;--okb:#dcf1e0;--warn:#8a5a00;--warnb:#fff0cc;--bad:#b3261e;--badb:#fbe3e0;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10142e;--surface:#1a2046;--ink:#e8eafc;--muted:#a3a9d6;--line:#2f3768;--accent:#9aa6ff;--ok:#8fdba3;--okb:#17381f;--warn:#f2c15e;--warnb:#4a3a10;--bad:#ff9a92;--badb:#4a1f1c}}
+:root[data-theme="dark"]{--bg:#10142e;--surface:#1a2046;--ink:#e8eafc;--muted:#a3a9d6;--line:#2f3768;--accent:#9aa6ff;--ok:#8fdba3;--okb:#17381f;--warn:#f2c15e;--warnb:#4a3a10;--bad:#ff9a92;--badb:#4a1f1c}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header,main{max-width:1050px;margin:auto;padding:0 20px}
+header{padding-top:28px}
+h1{font:700 clamp(26px,4vw,36px)/1.15 Georgia,"Iowan Old Style",Palatino,serif;margin:0 0 6px}
+header p{margin:0 0 14px;color:var(--muted);max-width:64ch}
+h2{font:700 19px Georgia,serif;margin:0 0 10px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+label.f{display:block;font-size:14px;color:var(--muted);font-weight:600}
+input,select,textarea{font:inherit;width:100%;margin-top:4px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+input:focus-visible,select:focus-visible,textarea:focus-visible,button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.steps{display:flex;gap:6px;flex-wrap:wrap;list-style:none;padding:0;margin:0 0 12px}
+.steps button{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:7px 10px;font:inherit;font-size:14px;cursor:pointer}
+.steps .done{background:var(--okb);color:var(--ok);border-color:var(--ok)}
+.steps .cur{background:var(--accent);color:var(--surface);border-color:var(--accent);font-weight:700}
+table{width:100%;border-collapse:collapse;font-size:15px}
+.tw{overflow-x:auto}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:13px;color:var(--muted)}
+.s{font-weight:700;border-radius:6px;padding:2px 8px;display:inline-block;white-space:nowrap;font-size:13px}
+.Done{background:var(--okb);color:var(--ok)}.Soon{background:var(--warnb);color:var(--warn)}.Overdue{background:var(--badb);color:var(--bad)}.Upcoming{background:var(--line);color:var(--muted)}
+button.p{font:inherit;font-weight:600;border:1px solid var(--accent);background:var(--accent);color:var(--surface);border-radius:8px;padding:8px 14px;cursor:pointer;margin:8px 8px 0 0}
+button.g{font:inherit;font-weight:600;border:1px solid var(--accent);background:transparent;color:var(--accent);border-radius:8px;padding:8px 14px;cursor:pointer;margin:8px 8px 0 0}
+textarea{min-height:170px;line-height:1.5}
+.v{padding:10px 12px;border-radius:8px;margin-top:10px;font-weight:600}
+.v.ok{background:var(--okb);color:var(--ok)}.v.no{background:var(--badb);color:var(--bad)}
+.note{color:var(--muted);font-size:14px;margin:6px 0 0}
+</style>
+</head>
+<body>
+<header>
+<h1>Vulnerability Disclosure Case Tracker</h1>
+<p>Enter a report, pick a severity, and the tracker builds the deadlines, shows who owns each stage, drafts the researcher message, and checks whether further testing is allowed. Targets are proposed values from the assignment, not legal requirements.</p>
+</header>
+<main>
+<section class="card" aria-label="Case details">
+<h2>Case details</h2>
+<div class="grid">
+<label class="f">Report title<input id="title" value="Reflected XSS on customer portal login"></label>
+<label class="f">Researcher name<input id="who" value="Researcher"></label>
+<label class="f">Severity<select id="sev"><option>Critical</option><option selected>High</option><option>Medium</option><option>Low</option></select></label>
+<label class="f">Date received<input id="recv" type="date"></label>
+<label class="f">Today (for status)<input id="today" type="date"></label>
+</div>
+</section>
+
+<section class="card" aria-label="Workflow">
+<h2>Workflow stage</h2>
+<ol class="steps" id="steps"></ol>
+<div id="owner" class="note"></div>
+<div class="tw"><table><thead><tr><th>Stage</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody id="rows"></tbody></table></div>
+<p class="note" id="upd"></p>
+</section>
+
+<section class="card" aria-label="Message draft">
+<h2>Message to the researcher</h2>
+<textarea id="msg" aria-label="Draft message"></textarea>
+<button class="g" id="copy" type="button">Copy message</button> <span class="note" id="cp"></span>
+</section>
+
+<section class="card" aria-label="Testing boundaries">
+<h2>Is this testing allowed?</h2>
+<label class="f">Researcher wants to
+<select id="act"></select></label>
+<div id="verdict" class="v"></div>
+<p class="note" id="reply"></p>
+</section>
+</main>
+<script>
+var STAGES=[
+{n:"Receive and log",o:"Intake Owner",d:function(r){return r}},
+{n:"Acknowledge",o:"Disclosure Coordinator",d:function(r){return bd(r,2)}},
+{n:"Triage and assess",o:"Triage Analyst",d:function(r){return add(r,7)}},
+{n:"Prioritize",o:"Coordinator and Executive Sponsor",d:function(r){return add(r,7)}},
+{n:"Remediate",o:"Engineering Owner and QA",d:function(r,s){return add(r,{Critical:14,High:30,Medium:60,Low:90}[s])}},
+{n:"Communicate and disclose",o:"Coordinator, Legal and Communications",d:function(r){return add(r,90)}},
+{n:"Review and close",o:"Coordinator",d:function(r){return add(r,120)}}];
+var ACT=[
+["Test only on in-scope systems with their own test account",1,"Thank you. That is within our policy."],
+["Use a harmless proof of concept, then stop",1,"Thank you. Please send the steps and stop testing once confirmed."],
+["Report extra findings in the same product",1,"Welcome. Please send them as separate cases if they are unrelated."],
+["Access or download other customers’ data",0,"Please stop, do not keep any data, and tell us what you saw. We will review the data impact with our privacy team."],
+["Run a denial-of-service or load test",0,"Please stop. Testing that affects availability is outside our policy."],
+["Phish employees or customers",0,"Social engineering is outside our policy. Please stop and keep to the technical report."],
+["Install a backdoor or move to other systems",0,"Please stop and remove any access. Persistence and lateral movement are not allowed."],
+["Test a third-party service we do not own",0,"That system is out of scope. We can contact the vendor for you."],
+["Publish details before the agreed date",0,"Please hold publication. We will share a fix date and agree a disclosure date with you."],
+["Ask for payment in return for silence",0,"We cannot accept payment as a condition for non-disclosure. We are escalating this to Legal for advice."]];
+function pd(s){var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2])}
+function iso(d){var m=d.getMonth()+1,x=d.getDate();return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(x<10?"0":"")+x}
+function add(s,n){var d=pd(s);d.setDate(d.getDate()+n);return iso(d)}
+function bd(s,n){var d=pd(s);while(n>0){d.setDate(d.getDate()+1);var w=d.getDay();if(w!==0&&w!==6)n--}return iso(d)}
+function $(i){return document.getElementById(i)}
+var cur=1;
+var t=iso(new Date());$("today").value=t;$("recv").value=t;
+ACT.forEach(function(a,i){var o=document.createElement("option");o.value=i;o.textContent=a[0];$("act").appendChild(o)});
+function msgFor(){
+ var r=$("who").value||"Researcher",ti=$("title").value,sv=$("sev").value,rc=$("recv").value;
+ var id="SEC-0001";
+ var T=[
+ "Case "+id+" has been logged for “"+ti+"”. Our team is handling it in confidence.",
+ "Hello "+r+",\n\nThank you for reporting “"+ti+"”. We have received your report and logged it as case "+id+". Our coordinator will be your contact.\n\nWe will send our first assessment by "+STAGES[2].d(rc,sv)+". Please keep the details private while we investigate, test only with your own accounts, do not access other people’s data, and stop once the issue is confirmed.\n\nThank you for helping us improve our security.",
+ "Hello "+r+",\n\nWe reproduced the issue and rated it "+sv+". We are planning a fix and will update you by "+add($("today").value,sv==="Critical"?7:14)+".\n\nIf you have more details or a proof of concept, please send them to this case.",
+ "Hello "+r+",\n\nThe "+sv+" issue is now prioritised with a fix target of "+STAGES[4].d(rc,sv)+". Next update by "+add($("today").value,sv==="Critical"?7:14)+". We would like to agree a disclosure date with you.",
+ "Hello "+r+",\n\nOur fix for “"+ti+"” is in progress. The target date is "+STAGES[4].d(rc,sv)+". We will contact you before then if the date changes. We would be glad to let you verify the fix privately.",
+ "Hello "+r+",\n\nThe fix is released. We propose publishing our advisory on "+STAGES[5].d(rc,sv)+" and crediting you if you wish. You are welcome to publish your own write-up after the advisory.",
+ "Hello "+r+",\n\nThis case is now closed. Thank you for your responsible reporting. We have updated our tests and processes based on your finding."];
+ return T[cur];
+}
+function render(){
+ var rc=$("recv").value,sv=$("sev").value,td=$("today").value;
+ var ul=$("steps");ul.innerHTML="";
+ STAGES.forEach(function(s,i){var li=document.createElement("li");var b=document.createElement("button");b.type="button";b.textContent=(i+1)+". "+s.n;b.className=i<cur?"done":i===cur?"cur":"";if(i===cur)b.setAttribute("aria-current","step");b.addEventListener("click",function(){cur=i;render()});li.appendChild(b);ul.appendChild(li)});
+ $("owner").textContent="Current owner: "+STAGES[cur].o+".";
+ var tb=$("rows");tb.innerHTML="";
+ STAGES.forEach(function(s,i){
+  var due=s.d(rc,sv),st;
+  if(i<cur)st="Done";else if(due<td)st="Overdue";else if(due<=add(td,3))st="Soon";else st="Upcoming";
+  var tr=document.createElement("tr");
+  [s.n,s.o,due].forEach(function(x){var c=document.createElement("td");c.textContent=x;tr.appendChild(c)});
+  var c=document.createElement("td");var sp=document.createElement("span");sp.className="s "+st;sp.textContent=st==="Soon"?"Due soon":st;c.appendChild(sp);tr.appendChild(c);tb.appendChild(tr);
+ });
+ $("upd").textContent="Update the researcher at least every "+(sv==="Critical"?7:14)+" days. Disclosure target: "+STAGES[5].d(rc,sv)+" (about 90 days from receipt, or when the fix is released).";
+ $("msg").value=msgFor();
+}
+["title","who","sev","recv","today"].forEach(function(i){$(i).addEventListener("input",render)});
+$("copy").addEventListener("click",function(){
+ var m=$("msg");m.select();
+ try{navigator.clipboard.writeText(m.value).then(function(){$("cp").textContent="Copied."},function(){document.execCommand("copy");$("cp").textContent="Copied."})}catch(e){try{document.execCommand("copy");$("cp").textContent="Copied."}catch(e2){$("cp").textContent="Select the text and copy it manually."}}
+});
+function verdict(){
+ var a=ACT[+$("act").value],v=$("verdict");
+ v.className="v "+(a[1]?"ok":"no");v.textContent=a[1]?"Allowed":"Not allowed";
+ $("reply").textContent="Suggested reply: "+a[2];
+}
+$("act").addEventListener("change",verdict);
+verdict();render();
+</script>
+</body>
+</html>
